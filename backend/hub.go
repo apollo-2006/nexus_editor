@@ -10,11 +10,20 @@ type Message struct {
 	Action    string  `json:"action"` // "insert" or "delete"
 }
 
+// Broadcast pairs a message with the client that sent it, so the hub can skip
+// that client when fanning out. Without the sender the hub echoed every message
+// back to its author, who then applied it a second time as a remote insert and
+// saw each character duplicated.
+type Broadcast struct {
+	message Message
+	sender  *Client
+}
+
 type Hub struct {
 	// Registered clients connected to the document
 	clients map[*Client]bool
-	// Inbound messages from the clients
-	broadcast chan Message
+	// Inbound messages from the clients, tagged with who sent them
+	broadcast chan Broadcast
 	// Register requests from the clients
 	register chan *Client
 	// Unregister requests from clients
@@ -23,7 +32,7 @@ type Hub struct {
 
 func newHub() *Hub {
 	return &Hub{
-		broadcast:  make(chan Message),
+		broadcast:  make(chan Broadcast),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
@@ -44,12 +53,17 @@ func (h *Hub) run() {
 				fmt.Println("User disconnected.")
 			}
 			
-		case message := <-h.broadcast:
-			// A user typed a character. Broadcast it to EVERY OTHER user.
+		case b := <-h.broadcast:
+			// A user typed a character. Broadcast it to every OTHER user; the
+			// sender has already applied it locally.
 			for client := range h.clients {
+				if client == b.sender {
+					continue
+				}
 				select {
-				case client.send <- message:
+				case client.send <- b.message:
 				default:
+					// Client is not draining its queue; drop it.
 					close(client.send)
 					delete(h.clients, client)
 				}

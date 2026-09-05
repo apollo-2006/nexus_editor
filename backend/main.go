@@ -53,21 +53,21 @@ func (c *Client) readPump() {
 		if err != nil {
 			break
 		}
-		// Send the typed character to the Hub for broadcasting
-		c.hub.broadcast <- msg
+		// Send the typed character to the Hub for broadcasting, tagged with
+		// this client so the hub does not echo it straight back to us
+		c.hub.broadcast <- Broadcast{message: msg, sender: c}
 	}
 }
 
 func (c *Client) writePump() {
 	defer c.conn.Close()
-	for {
-		select {
-		case message, ok := <-c.send:
-			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-			c.conn.WriteJSON(message)
+	// A range over the channel is the same thing the single-case select was
+	// doing, minus the unreachable branch. The loop ends when the hub closes
+	// send, which is its signal that this client has been unregistered.
+	for message := range c.send {
+		if err := c.conn.WriteJSON(message); err != nil {
+			return
 		}
 	}
+	c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 }
