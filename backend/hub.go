@@ -1,14 +1,15 @@
 package main
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
-// The CRDT payload we expect from the React frontend
-type Message struct {
-	Character string  `json:"char"`
-	Position  float64 `json:"position"`
-	SiteID    string  `json:"siteId"` // Unique ID of the user typing
-	Action    string  `json:"action"` // "insert" or "delete"
-}
+// Message is one CRDT operation, forwarded byte for byte. The relay never parses
+// it: merging is the clients' job, and a server that decoded operations into a
+// struct had to change every time the operation format did (positions went from
+// a float to a string when the float ran out of precision).
+type Message = json.RawMessage
 
 // Broadcast pairs a message with the client that sent it, so the hub can skip
 // that client when fanning out. Without the sender the hub echoed every message
@@ -45,14 +46,14 @@ func (h *Hub) run() {
 		case client := <-h.register:
 			h.clients[client] = true
 			fmt.Println("New user connected. Total:", len(h.clients))
-			
+
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
 				fmt.Println("User disconnected.")
 			}
-			
+
 		case b := <-h.broadcast:
 			// A user typed a character. Broadcast it to every OTHER user; the
 			// sender has already applied it locally.

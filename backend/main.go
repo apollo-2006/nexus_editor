@@ -1,9 +1,9 @@
 package main
 
 import (
+	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
-	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
@@ -29,7 +29,7 @@ func main() {
 			log.Println("Upgrade error:", err)
 			return
 		}
-		
+
 		client := &Client{hub: hub, conn: conn, send: make(chan Message, 256)}
 		client.hub.register <- client
 
