@@ -34,4 +34,5 @@ go.work.sum
 # Frontend
 node_modules/
 frontend/dist/
+*.tsbuildinfo
 backend/backend
