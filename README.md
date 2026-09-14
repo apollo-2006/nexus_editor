@@ -55,6 +55,21 @@ character and type into the same gap, and the new character got the deleted one'
 key back. The other replicas hold that key as a tombstone and dropped the new character,
 so the typist saw it and nobody else did. A site now steps past any key it has ever used.
 
+### Runs stay whole
+
+Splitting the gap is not enough on its own. Two people typing into the same spot at once
+each get positions that start with the same digit and differ only in the site tag at the
+end, so their letters sort alternately. On the demo page, one person adding "- eggs" while
+another turned "coffee" into "coffee beans" converged on `beeggasns`: every replica agreed,
+which is all convergence promises, and nobody had typed it.
+
+So a character typed straight after the same site's previous character does not split the
+gap. It takes that character's position and bumps the last digit (or adds one digit when
+the last is already the largest). Every character of a run then shares the run's prefix,
+and a concurrent run from another site, which carries a different prefix, sorts as a
+block before or after it. The same rule keeps positions short while typing normally: 2000
+characters typed in a row stay under 200 digits.
+
 ### Deletes are tombstones
 
 A delete records the character's key in a tombstone set before removing it. The network
@@ -89,8 +104,9 @@ The CRDT suite includes a randomized convergence test: three replicas make 120 r
 concurrent inserts and deletes each round, operations are delivered in random order and
 sometimes twice, and after everything arrives all three documents must match, across 60
 seeds. It also checks that `positionBetween` stays strictly between its bounds, keeps
-splitting one gap 2000 times where a float failed after about 50, and that a delete which
-arrives before its insert still wins. The relay test connects two WebSocket clients and
+splitting one gap 2000 times where a float failed after about 50, that a delete which
+arrives before its insert still wins, and that concurrent words typed into the same spot
+come out whole. Those last tests fail if run allocation is switched off. The relay test connects two WebSocket clients and
 checks a message reaches the other client unchanged and is not echoed to its sender.
 
 ## Build & run locally
@@ -109,12 +125,10 @@ Pages on every push to `main`.
 
 ## Known limits
 
-* **Concurrent runs can interleave.** If two people type words into the same gap at the
-  same moment, the characters can alternate: `[ada]` and `[linus]` typed at once came out
-  as `[[aldia]nus]` in the demo. Every replica agrees on the
-  result, which is all convergence promises, but it is not what either typed. This is a
-  known weakness of fractional-index CRDTs; sequence CRDTs such as RGA and Fugue are
-  designed to prevent it. The demo's race button reproduces it.
+* **Runs stay whole only when typed forward.** The run rule applies to a character typed
+  after your own previous one. Two people inserting characters in front of their own
+  cursors at the same spot at the same moment (typing backwards) can still interleave.
+  Sequence CRDTs such as RGA and Fugue prevent that case too.
 * **Tombstones are never collected.** The set of deleted keys only grows.
 * **Positions grow with edit history.** Heavy editing in one spot lengthens the position
   strings there.

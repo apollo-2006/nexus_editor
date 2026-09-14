@@ -3,6 +3,13 @@ import { CRDT, Operation, diffToOperations } from './CrdtEngine';
 import { SimulatedNetwork } from './SimulatedNetwork';
 
 const NAMES = ['ada', 'grace', 'linus'];
+
+// The other project demos, linked at the bottom of the page.
+const MORE_DEMOS: [string, string][] = [
+  ['nexus_db', 'nexus_db'], ['nexus_cluster', 'nexus_cluster'], ['nano_match', 'nano_match'],
+  ['custom_mem_alloc', 'custom_mem_alloc'], ['neon_vm', 'neon_vm'], ['photon_tracer', 'photon_tracer'],
+  ['cpu_rasterizer', 'cpu_rasterizer'], ['rasterizer_engine', 'rasterizer_engine'], ['oracle-of-delphi', 'oracle_of_delphi'],
+];
 const COLORS = ['var(--accent)', 'var(--accent-warm)', 'var(--ok)'];
 
 // Apply a remote operation without moving the local cursor: remember which
@@ -127,9 +134,9 @@ function Demo() {
           </div>
           <p className="small muted">Jitter larger than the gap between keystrokes makes operations arrive out of order. Take a replica
             offline, edit on both sides, then reconnect it.</p>
-          <p className="small muted">The race button shows this CRDT's known weakness: runs typed into the same gap at the same moment can
-            interleave character by character. Every replica agrees on the interleaving, which is what convergence promises, but it is not
-            what anyone typed. Sequence CRDTs such as RGA and Fugue are designed to prevent it.</p>
+          <p className="small muted">The race button has all three type a word into the same spot at the same moment. Convergence alone
+            only promises that every replica agrees; a naive fractional index agrees on letters shuffled together. Here each word stays whole,
+            because a character typed right after your own previous one extends that character's position instead of splitting the gap.</p>
           <div className="row">
             <button onClick={race}>all three type in the same spot</button>
             <label className="small muted toggle"><input type="checkbox" checked={showIds} onChange={(e) => setShowIds(e.target.checked)} /> show positions</label>
@@ -168,6 +175,11 @@ function Demo() {
         </section>
       )}
 
+      <nav className="more-demos" aria-label="Other demos">
+        <span>more demos</span>
+        {MORE_DEMOS.map(([repo, label]) => <a key={repo} href={`https://apollo-2006.github.io/${repo}/`}>{label}</a>)}
+        <a className="all" href="https://abirdeol.tech/projects?filter=live">all projects →</a>
+      </nav>
       <footer>nexus_editor by <a href="https://abirdeol.tech">Abir Deol</a> · run the Go relay locally and open this page with <span className="mono">?ws=ws://localhost:8080/ws</span> to edit across windows</footer>
     </div>
   );

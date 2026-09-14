@@ -32,6 +32,21 @@ export function positionBetween(lo: string, hi: string | null): string {
   }
 }
 
+/**
+ * The next position after `pos` that keeps all of `pos` but its last digit:
+ * bump that digit, or, if it is already the largest, extend `pos` by one digit.
+ *
+ * Used when a site types straight after its own previous character. Every
+ * character in the run shares the run's prefix, so concurrent runs from other
+ * sites (which carry a different prefix) sort as whole runs instead of
+ * alternating letter by letter. Never ends in '0'.
+ */
+export function positionAfter(pos: string): string {
+  const d = DIGITS.indexOf(pos[pos.length - 1]);
+  if (d >= 0 && d < BASE - 1) return pos.slice(0, -1) + DIGITS[d + 1];
+  return pos + DIGITS[BASE >> 1];
+}
+
 /** A short per-site tag appended to every position a site generates. */
 export function siteTag(siteId: string): string {
   // Digits 1..z only, so the tag never ends in '0' (see positionBetween).

@@ -79,6 +79,54 @@ describe('CRDT', () => {
     expect(b.getText()).toBe('abc');
   });
 
+  it('two people appending at the same place keep their words whole', () => {
+    // The case the demo page exposed: one person adds a line while another
+    // extends the last word, both at the end of the document, at the same time.
+    const base = 'shopping list:\n- coffee';
+    const grace = new CRDT('grace'), linus = new CRDT('linus');
+    const seed = diffToOperations(grace, '', base);
+    seed.forEach((op) => linus.apply(op));
+    const fromGrace = diffToOperations(grace, base, base + '\n- eggs');
+    const fromLinus = diffToOperations(linus, base, base + ' beans');
+    fromLinus.forEach((op) => grace.apply(op));
+    fromGrace.forEach((op) => linus.apply(op));
+    expect(grace.getText()).toBe(linus.getText());
+    expect(grace.getText()).toContain('\n- eggs');
+    expect(grace.getText()).toContain(' beans');
+  });
+
+  it('three concurrent runs typed into one gap stay contiguous', () => {
+    const sites = ['ada', 'grace', 'linus'].map((id) => new CRDT(id));
+    const seed = diffToOperations(sites[0], '', '<>');
+    sites.slice(1).forEach((s) => seed.forEach((op) => s.apply(op)));
+    // Each types one character at a time, as a keyboard does, before anything arrives.
+    const ops = sites.map((s) => {
+      let text = '<>';
+      const out = [];
+      for (const ch of `[${s.siteId}]`) {
+        const next = text.slice(0, text.length - 1) + ch + '>';
+        out.push(...diffToOperations(s, text, next));
+        text = next;
+      }
+      return out;
+    });
+    sites.forEach((s, i) => ops.forEach((o, j) => { if (i !== j) o.forEach((op) => s.apply(op)); }));
+    const final = sites[0].getText();
+    sites.forEach((s) => expect(s.getText()).toBe(final));
+    for (const name of ['[ada]', '[grace]', '[linus]']) expect(final).toContain(name);
+  });
+
+  it('a long run of sequential typing keeps positions short', () => {
+    const a = new CRDT('a');
+    let text = '';
+    for (let i = 0; i < 2000; i++) {
+      diffToOperations(a, text, text + 'x');
+      text += 'x';
+    }
+    const longest = Math.max(...a.chars().map((c) => c.position.length));
+    expect(longest).toBeLessThan(200);
+  });
+
   it('a delete that arrives before its insert still wins', () => {
     const a = new CRDT('a'), b = new CRDT('b');
     const [ins] = diffToOperations(a, '', 'x');
