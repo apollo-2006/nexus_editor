@@ -4,6 +4,9 @@ import { SimulatedNetwork } from './SimulatedNetwork';
 
 const NAMES = ['ada', 'grace', 'linus'];
 
+// The document every replica opens with, so the page starts with something to edit.
+const SEED = 'shopping list:\n- oat milk\n- coffee';
+
 // The other project demos, linked at the bottom of the page.
 const MORE_DEMOS: [string, string][] = [
   ['nexus_db', 'nexus_db'], ['nexus_cluster', 'nexus_cluster'], ['nano_match', 'nano_match'],
@@ -50,6 +53,7 @@ function Replica({ index, crdt, net, boxRef, onLocalEdit }: {
         ref={boxRef}
         rows={7}
         value={text}
+        placeholder="type here"
         spellCheck={false}
         aria-label={`${NAMES[index]}'s editor`}
         onChange={(e) => {
@@ -66,7 +70,14 @@ function Replica({ index, crdt, net, boxRef, onLocalEdit }: {
 
 function Demo() {
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const crdts = useMemo(() => NAMES.map((n) => new CRDT(n)), []);
+  const crdts = useMemo(() => {
+    const replicas = NAMES.map((n) => new CRDT(n));
+    // Typed once and handed to the other replicas directly, not through the simulated
+    // network, so the page opens already converged.
+    const seed = diffToOperations(replicas[0], '', SEED);
+    replicas.slice(1).forEach((r) => seed.forEach((op) => r.apply(op)));
+    return replicas;
+  }, []);
   const boxes = useRef<(HTMLTextAreaElement | null)[]>([]);
   const net = useMemo(
     () => new SimulatedNetwork(NAMES.length, (to, op) => applyKeepingCursor(crdts[to], op, boxes.current[to]), () => rerender()),
